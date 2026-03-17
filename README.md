@@ -130,13 +130,9 @@ The app opens automatically with the role, company and JD pre-filled.
 
 ## 📦 Import existing analyses
 
-Already analysed roles in another tool? Run the migration script against your old data:
+The app supports bulk-importing previously analysed roles via **Settings → Import Existing Analyses**. Upload a `migration-output.json` file and duplicates are skipped automatically.
 
-```bash
-node scripts/migrate.js
-```
-
-Then go to **Settings → Import Existing Analyses** and upload the `migration-output.json` it creates. Duplicates are skipped automatically.
+> Before building Career Pilot I had already analysed a large number of positions in a separate personal pipeline. I wrote a one-off migration script to convert that data into the import format — so none of that work was lost. The script is not included here as it was tightly coupled to my own folder structure and wouldn't be useful to anyone else.
 
 ---
 
@@ -163,4 +159,4 @@ Then go to **Settings → Import Existing Analyses** and upload the `migration-o
 | **Re-analyze** | Swap CV version or update context and re-run without re-entering the JD |
 | **CV manager** | Multiple CV versions; upload PDF, Word (.docx), TXT or RTF |
 | **Chrome extension** | One-click scrape from LinkedIn, Indeed, Glassdoor and most company career pages |
-| **Import** | Bulk-import from a previous pipeline via `migration-output.json` |
+| **Import** | Bulk-import previously analysed roles via Settings — duplicates skipped automatically |
