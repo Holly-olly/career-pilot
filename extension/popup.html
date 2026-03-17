@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 340px;
+      background: #0f172a;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      padding: 14px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1e293b;
+      margin-bottom: 12px;
+    }
+    .logo { font-size: 17px; }
+    .app-title { font-weight: 700; color: #818cf8; font-size: 14px; }
+
+    /* ── State panels ── */
+    #loading-panel { text-align: center; padding: 24px 0; color: #64748b; }
+    #error-panel   { display: none; text-align: center; padding: 24px 0; color: #f87171; line-height: 1.5; }
+    #main-panel    { display: none; }
+
+    /* ── Preview card ── */
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .field-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #475569;
+      margin-bottom: 3px;
+    }
+    .field-value {
+      color: #cbd5e1;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #jd-preview {
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .chars {
+      font-size: 10px;
+      color: #334155;
+      margin-top: 4px;
+    }
+    .divider { height: 1px; background: #334155; margin: 8px 0; }
+
+    /* ── Buttons ── */
+    button {
+      width: 100%;
+      padding: 9px;
+      border-radius: 7px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    #send-btn { background: #4f46e5; color: white; margin-bottom: 8px; }
+    #send-btn:hover:not(:disabled) { background: #4338ca; }
+    #send-btn:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
+
+    /* ── URL row ── */
+    .url-row { display: flex; gap: 6px; }
+    .url-input {
+      flex: 1;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 5px 9px;
+      color: #94a3b8;
+      font-size: 11px;
+      outline: none;
+    }
+    .url-input:focus { border-color: #6366f1; color: #f1f5f9; }
+    .save-btn {
+      background: #1e293b;
+      color: #64748b;
+      border: 1px solid #334155;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      width: auto;
+      border-radius: 6px;
+    }
+    .save-btn:hover { background: #334155; color: #94a3b8; }
+
+    /* ── Status ── */
+    #status {
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 8px;
+      min-height: 16px;
+    }
+    #status.success { color: #34d399; }
+    #status.error   { color: #f87171; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="logo">✈</span>
+    <span class="app-title">Career Pilot Bridge</span>
+  </header>
+
+  <!-- Scanning -->
+  <div id="loading-panel">Scanning page…</div>
+
+  <!-- Error (page can't be scanned) -->
+  <div id="error-panel">
+    <div style="font-size:24px;margin-bottom:8px">🔍</div>
+    <div id="error-msg"></div>
+  </div>
+
+  <!-- Main -->
+  <div id="main-panel">
+    <div class="card">
+      <div class="field-label">Role</div>
+      <div class="field-value" id="role-val">—</div>
+      <div class="divider"></div>
+      <div class="field-label">Company</div>
+      <div class="field-value" id="company-val">—</div>
+      <div class="divider"></div>
+      <div class="field-label">Job Description</div>
+      <div class="field-value" id="jd-preview">—</div>
+      <div class="chars" id="jd-chars"></div>
+    </div>
+
+    <button id="send-btn">⚡ Send to Career Pilot</button>
+
+    <div class="url-row">
+      <input id="cp-url" class="url-input" type="text" placeholder="http://localhost:3000" />
+      <button class="save-btn" id="save-url-btn">Save URL</button>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

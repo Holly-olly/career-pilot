@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Vercel
+.vercel
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env*.local
+
+# Personal data — do not commit
+scripts/migration-output.json
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
