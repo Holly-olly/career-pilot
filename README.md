@@ -1,162 +1,187 @@
 # ✈ Career Pilot
 
-> **A browser-based AI career co-pilot for high-level professionals.**
-> Paste a job description, get a strategic fit report — score, verdict, gap analysis, CV tweaks and ATS keywords — in under 20 seconds. Track your whole application pipeline in one place.
+**AI-powered job fit analyser for senior professionals.**
+
+Paste a job description, get an instant strategic report: match score, fit analysis, CV tweaks, and ATS keywords — all evaluated against your hidden context (career focus, dealbreakers, unlisted talents) that never appears in your CV.
+
+🔗 **Live app:** [cv-matcher-azure.vercel.app](https://cv-matcher-azure.vercel.app)
 
 ---
 
-## 🧠 The Story Behind This Project
+## The Story Behind This Project
 
-*This space is reserved for the builder's story.*
+> *This section is for you to fill in — your words, your experience.*
 
-I started building Career Pilot myself to solve a real problem: evaluating whether a senior role was worth pursuing used to take me an hour of manual comparison. I wanted something that could act like a trusted advisor — someone who knows my background deeply and can read a JD and give me a straight answer.
+I started building Career Pilot myself, then handed it to Claude Code as a technical challenge: take my idea and build it without me sitting in the driver's seat.
 
-Once I had a clear vision of what I needed, I wrote a detailed product spec and handed it to **Claude Code** to build the full application — without me writing a single line of code myself. This repo is the result.
-
-*← Add your own experience here: what it felt like to collaborate with Claude, what surprised you, what you'd do differently, what worked brilliantly.*
+<!--
+  ✍️ Add your story here:
+  - What problem were you solving?
+  - What did you build first on your own?
+  - What did you ask Claude Code to do?
+  - What surprised you about working this way?
+  - What would you do differently?
+-->
 
 ---
 
-## 🗂 Project Structure
+## What It Does
+
+| Feature | Description |
+|---|---|
+| **AI Fit Analysis** | Scores each role 0–100 against your CV and hidden context |
+| **Verdict** | Apply / Consider / Skip — with reasoning |
+| **CV Tweaks** | Role-specific wording suggestions and ATS keywords |
+| **Pipeline Dashboard** | Track every role: status, score, verdict, date |
+| **Multi-filter + Sort** | Filter by status and verdict simultaneously; sort any column |
+| **Multiple CV versions** | Keep "General", "Research-focused", "Product PM" etc. and switch between them |
+| **CV upload** | Upload PDF, Word (.docx), TXT, or RTF — text extracted automatically |
+| **Chrome Extension** | One-click scrape from LinkedIn, Indeed, Glassdoor → auto-fills the analysis form |
+| **Hidden context** | Talents, career focus, and dealbreakers injected into every prompt — invisible to the AI's "hiring manager" persona |
+| **No account needed** | All data stays in your browser's localStorage — private by default |
+
+---
+
+## Architecture
+
+```
+Browser (React SPA)
+    │
+    ├── localStorage          ← all your data lives here, private per browser
+    │
+    └── POST /api/analyze     ← Vercel serverless function
+            │
+            └── Google Gemini AI   ← API key never leaves the server
+```
+
+**Why serverless?** The Gemini API key is stored as a Vercel environment variable. It never touches the frontend — so sharing the app with friends is safe.
+
+**Why localStorage?** No database, no accounts, no GDPR headaches. Each person who uses the URL gets their own completely private data.
+
+---
+
+## Project Structure
 
 ```
 career-pilot/
 ├── api/
-│   └── analyze.js          # Vercel serverless function — proxies Gemini API (keeps key hidden)
-│
-├── extension/              # Chrome Extension "Career Pilot Bridge"
-│   ├── manifest.json       # MV3 manifest
-│   ├── popup.html / .js    # Popup UI — scrapes job page & sends data to the app
-│   └── bridge.js           # Content script — relays data from extension to React app
-│
+│   └── analyze.js          ← Vercel serverless function (AI proxy, hides API key)
 ├── src/
-│   ├── constants.js        # Shared constants: STATUSES, VERDICTS, scoreColor, verdictBadge
+│   ├── App.jsx             ← routing (state-based, no react-router)
+│   ├── constants.js        ← statuses, verdicts, score colours — edit here
 │   ├── context/
-│   │   └── AppContext.jsx  # Global state (settings, CVs, jobs) + localStorage persistence
+│   │   └── AppContext.jsx  ← global state (settings, CVs, jobs) + localStorage sync
 │   ├── utils/
-│   │   ├── ai.js           # buildPrompt() + analyzeJob() — all AI logic lives here
-│   │   ├── parser.js       # parseReport() extracts score/verdict from AI text
-│   │   └── storage.js      # Thin localStorage wrapper (all keys prefixed cp_)
+│   │   ├── ai.js           ← prompt builder + Gemini caller
+│   │   ├── parser.js       ← extracts score/verdict from AI text
+│   │   └── storage.js      ← thin localStorage wrapper
 │   └── components/
-│       ├── Navbar.jsx          # Top nav + active CV indicator
-│       ├── Dashboard.jsx       # Pipeline table with multi-select filters + column sorting
-│       ├── MetricsBar.jsx      # Avg score, applied count, interview rate, offers
-│       ├── NewAnalysis.jsx     # Form to paste JD + run analysis
-│       ├── JobDetail.jsx       # Full report view + re-analyze panel
-│       ├── CVManager.jsx       # Upload/paste CV versions, set active
-│       ├── Settings.jsx        # Strategic context + import existing analyses
-│       └── Spinner.jsx         # Shared loading spinner
-│
-├── vercel.json             # Vercel config: serverless function + install command
-└── package.json
+│       ├── Navbar.jsx      ← top nav + active CV indicator
+│       ├── Dashboard.jsx   ← pipeline table with filters and sorting
+│       ├── MetricsBar.jsx  ← avg score, applied, interviews, offers
+│       ├── NewAnalysis.jsx ← analysis form + Chrome extension integration
+│       ├── JobDetail.jsx   ← full report + re-analyze panel
+│       ├── CVManager.jsx   ← CV versions (paste or upload PDF/DOCX/TXT/RTF)
+│       ├── Settings.jsx    ← strategic context + import
+│       └── Spinner.jsx     ← shared loading spinner
+├── extension/
+│   ├── manifest.json       ← Chrome Extension Manifest V3
+│   ├── popup.html          ← extension popup UI
+│   ├── popup.js            ← scrapes job page, sends to app
+│   └── bridge.js           ← content script: delivers data to the React app
+├── vercel.json             ← serverless config
+└── .gitignore              ← secrets and personal data excluded
 ```
 
 ---
 
-## 🚀 Deploy (recommended — no terminal needed after first setup)
+## Running Locally
 
-The app runs as a static site + one serverless function on **Vercel** (free tier).
-Friends can use your deployment in any browser — no VS Code, no Node, nothing to install.
-
-### First deploy
+**Prerequisites:** Node.js 18+, a [Google Gemini API key](https://aistudio.google.com/app/apikey) (free tier works)
 
 ```bash
-# 1. Clone
-git clone https://github.com/YOUR_USERNAME/career-pilot.git
+# 1. Clone and install
+git clone https://github.com/Holly-olly/career-pilot.git
 cd career-pilot
-
-# 2. Install
 npm install
 
-# 3. Deploy
-npx vercel --prod
+# 2. Add your key to .env.local (this file is gitignored)
+echo "VITE_GEMINI_API_KEY=your_key_here" >> .env.local
+
+# 3. Start
+npm run dev
 ```
 
-Vercel will ask a few setup questions, then give you a URL like `https://career-pilot-xyz.vercel.app`.
+Then open [http://localhost:5173](http://localhost:5173).
 
-### Add the Gemini API key (one-time)
+> In dev mode the app calls Gemini directly from the browser using `VITE_GEMINI_API_KEY`.
+> In production (Vercel) it routes through `/api/analyze` — the key never reaches the frontend.
+
+---
+
+## Deploying Your Own Instance
 
 ```bash
+# First time
+npx vercel
+
+# Add your API key (stored server-side, never public)
 npx vercel env add GEMINI_API_KEY
-# Paste your key when prompted, select all environments
-npx vercel --prod   # redeploy to pick up the new env var
-```
 
-Get a free Gemini key at [aistudio.google.com](https://aistudio.google.com) → **Get API Key**.
-
-### Redeploy after code changes
-
-```bash
+# Deploy to production
 npx vercel --prod
 ```
 
----
-
-## 💻 Local development
-
-```bash
-npx vercel env pull .env.local   # pull env vars from Vercel (needed for /api/analyze)
-npx vercel dev                   # starts Vite + serverless function together on :3000
-```
-
-> **Why `vercel dev` and not `npm run dev`?**
-> `npm run dev` starts Vite but skips the serverless function, so AI calls fail.
-> `vercel dev` emulates the full Vercel environment locally.
+The app is now live at your Vercel URL. Share it with friends — each person gets their own private data in their own browser.
 
 ---
 
-## 📱 Chrome Extension setup
+## Chrome Extension Setup
 
-The **Career Pilot Bridge** extension lets you send any job posting to the app with one click.
+The extension lets you send any job posting to Career Pilot with one click.
 
-1. Open Chrome → `chrome://extensions` → enable **Developer mode**
-2. Click **Load unpacked** → select the `extension/` folder
-3. Open a job posting (LinkedIn, Indeed, Glassdoor, etc.)
-4. Click the extension icon → **⚡ Send to Career Pilot**
+1. Open Chrome → `chrome://extensions`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked** → select the `extension/` folder from this repo
+4. Visit any job posting (LinkedIn, Indeed, Glassdoor, company sites…)
+5. Click the Career Pilot icon → **Send to Career Pilot**
 
-The app opens automatically with the role, company and JD pre-filled.
-
-> To share the extension with friends, zip the `extension/` folder and send it — they load it the same way.
-
----
-
-## 🔧 First-time app setup
-
-1. **Settings** — Fill in your Strategic Context (Persona, Unlisted Talents, Hard NOs, Current Focus). This is injected invisibly into every AI analysis.
-2. **My CVs** — Upload a PDF/Word/TXT file or paste CV text. Set one version as Active.
-3. **New Analysis** — Paste a job description (or use the Chrome extension) → Analyze.
+The extension works with the live Vercel URL out of the box. To use it with a local dev server, update `DEFAULT_URL` in `extension/popup.js`.
 
 ---
 
-## 📦 Import existing analyses
+## Customising
 
-The app supports bulk-importing previously analysed roles via **Settings → Import Existing Analyses**. Upload a `migration-output.json` file and duplicates are skipped automatically.
+**Add a job status** → edit `STATUSES` in `src/constants.js`
 
-> Before building Career Pilot I had already analysed a large number of positions in a separate personal pipeline. I wrote a one-off migration script to convert that data into the import format — so none of that work was lost. The script is not included here as it was tightly coupled to my own folder structure and wouldn't be useful to anyone else.
+**Change score thresholds** → edit `scoreColor()` in `src/constants.js`
 
----
+**Change the AI model** → edit `GEMINI_MODEL` in `src/utils/ai.js` and `api/analyze.js`
 
-## 🔒 Privacy
-
-- All data (CVs, analyses, pipeline) lives in **your browser's localStorage** only
-- Nothing is stored on any server or database
-- The Gemini API key lives in a Vercel environment variable — never in the browser
-- Each person who opens the app URL has their own completely private data
-- Clearing browser data removes everything — copy important reports first
+**Change the analysis prompt** → edit `buildPrompt()` in `src/utils/ai.js`
 
 ---
 
-## ✨ Features
+## Tech Stack
 
-| Feature | Details |
+| Layer | Technology |
 |---|---|
-| **AI fit analysis** | Score (0–100), verdict (Apply / Consider / Skip), strengths, gaps, CV tweaks, ATS keywords |
-| **Strategic context** | Persona, unlisted talents, hard NOs and career focus baked invisibly into every prompt |
-| **Pipeline dashboard** | Full status lifecycle: New → Target → Applied → Interview → Offer |
-| **Multi-select filters** | Filter by any combination of statuses and verdicts simultaneously |
-| **Column sorting** | Sort by Company, Role, Score, Verdict, Status or Date |
-| **Metrics bar** | Avg match score, total applied, active targets, success rate, pipeline velocity |
-| **Re-analyze** | Swap CV version or update context and re-run without re-entering the JD |
-| **CV manager** | Multiple CV versions; upload PDF, Word (.docx), TXT or RTF |
-| **Chrome extension** | One-click scrape from LinkedIn, Indeed, Glassdoor and most company career pages |
-| **Import** | Bulk-import previously analysed roles via Settings — duplicates skipped automatically |
+| UI | React 18 + Vite 5 |
+| Styling | Tailwind CSS (dark theme) |
+| Hosting | Vercel (free tier) |
+| AI | Google Gemini (`gemini-3.1-flash-lite-preview`) |
+| Data | Browser localStorage — no database |
+| Extension | Chrome Manifest V3 |
+| CV parsing | pdfjs-dist (PDF), mammoth (DOCX) |
+
+---
+
+## Privacy
+
+- **Your data never leaves your browser** — jobs, CVs, and settings are stored in `localStorage` only
+- **Your API key never leaves the server** — it lives in a Vercel environment variable
+- No analytics, no tracking, no accounts
+
+---
+
+*Built with [Claude Code](https://claude.ai/claude-code)*

@@ -46,7 +46,7 @@ export default function App() {
 
   return (
     <AppProvider>
-      <div className="min-h-screen" style={{ backgroundColor: '#0f172a' }}>
+      <div className="min-h-screen bg-slate-950">
         <Navbar view={view} navigate={navigate} />
         <main className="max-w-7xl mx-auto px-4 py-8">
           {view === 'dashboard' && <Dashboard navigate={navigate} />}
