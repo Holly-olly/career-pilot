@@ -1,18 +1,30 @@
 # Dependencies
 node_modules/
+.venv/
 
 # Build output
 dist/
+.vite/
 
 # Vercel
-.vercel
+.vercel/
 
 # Environment variables — NEVER commit these
 .env
 .env.local
 .env*.local
 
-# Personal data — do not commit
+# Evaluation project — lives in a separate repo
+evaluation/
+
+# Internal planning & working docs — not for public
+docs/
+claude.md
+
+# Build artefacts
+*.crx
+*.pem
+*.zip
 scripts/migration-output.json
 
 # macOS
@@ -20,3 +32,4 @@ scripts/migration-output.json
 
 # Editor
 .vscode/
+__pycache__/
