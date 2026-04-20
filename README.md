@@ -5,6 +5,7 @@
 Paste a job description — or use the Chrome extension to import it from any job board — and get an instant report: a match score (0–100), a go/no-go verdict, tailored CV tweaks, and ATS keywords. The analysis runs against your actual CV and your hidden career context (focus, dealbreakers, unlisted talents) that never appears on paper. Everything stays in your browser. No accounts, no database.
 
 🔗 **Live app:** [cv-matcher-azure.vercel.app](https://cv-matcher-azure.vercel.app)
+🧩 **Chrome extension:** [Install from Chrome Web Store](https://chromewebstore.google.com/detail/fjhgkajgdhdiagfmcmaomijcghbohlcd)
 
 ---
 
@@ -13,15 +14,13 @@ Paste a job description — or use the Chrome extension to import it from any jo
 
 ---
 
-## Background
+## Evaluation
 
-I built this tool to solve my own problem — cutting through a high-volume job search as a psychometrician moving into people data science. The first version worked, but the UX was rough and the scoring logic was opaque.
+The scoring system has been independently evaluated using psychometric methods (criterion validity, reliability, fairness) and AI/ML evaluation methods (ranking quality, prompt sensitivity, cross-model benchmarking).
 
-Over several iterations I improved the interface significantly and replaced the original prompt-only scoring with a structured matching layer (deterministic scoring across domain, seniority, and skills) combined with an LLM report. That work raised a deeper question: *how good is this scoring system actually?*
+**Key findings:** Strong ranking quality (NDCG@5 = 0.956), near-perfect test-retest reliability (ICC = 0.994), and a structural mid-range scoring pattern that concentrates uncertainty in a single score cluster — revealing where the system's limits are and why.
 
-That question became a standalone evaluation project — applying psychometric frameworks (criterion validity, reliability, fairness) alongside AI/engineering methods (ranking quality, robustness, cross-model benchmarking) to systematically assess how well the tool predicts real hiring outcomes.
-
-> 📊 **Evaluation project:** [github.com/Holly-olly/llm-cv-screener-eval](https://github.com/Holly-olly/llm-cv-screener-eval) *(coming soon)*
+> 📊 **Full evaluation:** [github.com/Holly-olly/llm-cv-screener-eval](https://github.com/Holly-olly/llm-cv-screener-eval)
 
 ---
 
@@ -63,7 +62,7 @@ Open [http://localhost:5173](http://localhost:5173).
 2. Click **Load unpacked** → select the `app/extension/` folder
 3. Go to any job posting → click the Career Pilot icon → **Send to Career Pilot**
 
-The published extension will be available on the Chrome Web Store shortly.
+The extension is published on the Chrome Web Store: [Install Career Pilot](https://chromewebstore.google.com/detail/fjhgkajgdhdiagfmcmaomijcghbohlcd)
 
 ---
 

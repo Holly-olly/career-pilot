@@ -256,9 +256,15 @@ export default function NewAnalysis({ navigate, bridgeData, onBridgeClear }) {
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="block text-xs text-slate-400">Job Description *</label>
-            <span className="text-xs text-slate-600" title="Chrome extension coming soon">
-              Skip copy-paste — extension coming soon
-            </span>
+            <a
+              href="https://chromewebstore.google.com/detail/fjhgkajgdhdiagfmcmaomijcghbohlcd"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              title="Install Chrome extension — import any job posting in one click"
+            >
+              Skip copy-paste — get the extension ↗
+            </a>
           </div>
           <textarea
             rows={10}
