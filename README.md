@@ -78,4 +78,14 @@ No data leaves your browser except the AI call to Google's API using your own ke
 
 ---
 
+## Contribute to the Research
+
+Career Pilot is part of an ongoing evaluation study. If you use the app and track whether applications led to interviews or offers, that outcome data helps validate the scoring system.
+
+> 📊 **Evaluation project:** [github.com/Holly-olly/llm-cv-screener-eval](https://github.com/Holly-olly/llm-cv-screener-eval)
+
+---
+
+Free to use for job searching or research. If you find this useful, [buy me a coffee ☕](https://ko-fi.com/V7V11WRGZX).
+
 *Built with [Claude Code](https://claude.ai/claude-code)*
