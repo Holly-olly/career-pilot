@@ -1,2 +1,17 @@
+# Vercel + secrets
 .vercel
 .env*.local
+
+# Dependencies + build output
+node_modules/
+dist/
+
+# macOS metadata
+.DS_Store
+
+# Local sandbox (contains CV + JD pasted directly)
+scripts/test_prompt.py
+
+# Editor metadata
+.vscode/
+.idea/

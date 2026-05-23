@@ -186,6 +186,7 @@ export default function NewAnalysis({ navigate, bridgeData, onBridgeClear }) {
         structured_breakdown: result.structured_breakdown,
         hard_no_violated: result.hard_no_violated,
         hard_no_reason: result.hard_no_reason,
+        dealbreakers_triggered: result.dealbreakers_triggered || [],
         status: '👀 New',
         date: new Date().toISOString(),
         cvId: cvToUse.id,

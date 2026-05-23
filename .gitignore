@@ -14,12 +14,16 @@ dist/
 .env.local
 .env*.local
 
-# Evaluation project — lives in a separate repo
+# Evaluation projects — live in separate repos
 evaluation/
+llm_evaluation/
+OLD_evaluation/
 
 # Internal planning & working docs — not for public
-docs/
+working_docs/
 claude.md
+AGENTS.md
+LLM-as-a-judge/
 
 # Build artefacts
 *.crx

@@ -47,6 +47,7 @@ function ApiKeyBar() {
 import MetricsBar from './MetricsBar';
 import { formatDate } from '../utils/parser';
 import { STATUSES, VERDICTS, scoreColor, verdictBadge } from '../constants';
+import { detectDealbreakers } from '../utils/ai';
 
 // Pre-compute sort orders so comparisons are O(1).
 const VERDICT_ORDER = Object.fromEntries(VERDICTS.map((v, i) => [v, i]));
@@ -63,7 +64,7 @@ function verdictChipActive(verdict) {
 }
 
 export default function Dashboard({ navigate }) {
-  const { jobs, updateJob, deleteJob } = useApp();
+  const { jobs, updateJob, deleteJob, settings } = useApp();
 
   // ── Filter state (Sets allow multi-select) ─────────────────────────────────
   const [activeStatuses, setActiveStatuses] = useState(new Set());
@@ -184,7 +185,19 @@ export default function Dashboard({ navigate }) {
         </button>
       </div>
 
-      <MetricsBar jobs={jobs} />
+      <MetricsBar
+        jobs={jobs}
+        onPipelineClick={(statuses) => {
+          // Toggle: if the pipeline filter is already active (current
+          // filter equals exactly these statuses), clear it; otherwise
+          // set the filter to these statuses.
+          setActiveStatuses((prev) => {
+            const sameSize = prev.size === statuses.length;
+            const sameContents = sameSize && statuses.every((s) => prev.has(s));
+            return sameContents ? new Set() : new Set(statuses);
+          });
+        }}
+      />
 
       {/* Filters — only shown when there's something to filter */}
       {jobs.length > 0 && (
@@ -307,8 +320,8 @@ export default function Dashboard({ navigate }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800">
-                  <SortTh field="company" label="Company" />
                   <SortTh field="role"    label="Role" />
+                  <SortTh field="company" label="Company" />
                   <SortTh field="score"   label="Score"   align="center" />
                   <SortTh field="verdict" label="Verdict" align="center" />
                   <SortTh field="status"  label="Status" />
@@ -326,7 +339,34 @@ export default function Dashboard({ navigate }) {
                       idx === filtered.length - 1 ? 'border-0' : ''
                     }`}
                   >
-                    <td className="px-4 py-3 font-medium text-slate-200 whitespace-nowrap max-w-[140px] truncate">
+                    {/* Role first (primary identifier), then Company. Notes
+                        appear as a small dimmed preview line under the role
+                        so the user can scan them without clicking through. */}
+                    <td className="px-4 py-3 text-slate-200 font-medium max-w-[240px]">
+                      <div className="truncate flex items-center gap-1.5">
+                        <span className="truncate">{job.role}</span>
+                        {(() => {
+                          const liveDb = detectDealbreakers(job.jd, settings.hardNos);
+                          if (liveDb.length === 0) return null;
+                          return (
+                            <span
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400 flex-shrink-0"
+                              title={`Dealbreaker(s) in JD: ${liveDb.join(', ')}`}
+                            >⚠ dealbreaker</span>
+                          );
+                        })()}
+                      </div>
+                      {job.notes && job.notes.trim() && (
+                        <div
+                          className="text-[11px] text-slate-500 truncate mt-0.5"
+                          title={job.notes}
+                        >{job.notes}</div>
+                      )}
+                      {job.isDemo && (
+                        <span className="text-[10px] text-amber-500/70 font-medium uppercase tracking-wide">Demo</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-slate-300 whitespace-nowrap max-w-[160px] truncate">
                       {job.url ? (
                         <a
                           href={job.url}
@@ -342,12 +382,6 @@ export default function Dashboard({ navigate }) {
                         job.company
                       )}
                     </td>
-                    <td className="px-4 py-3 text-slate-300 max-w-[200px]">
-                      <span className="truncate block">{job.role}</span>
-                      {job.isDemo && (
-                        <span className="text-[10px] text-amber-500/70 font-medium uppercase tracking-wide">Demo</span>
-                      )}
-                    </td>
                     <td className="px-4 py-3 text-center">
                       {job.score !== null && job.score !== undefined ? (
                         <span className={`text-lg font-bold tabular-nums ${scoreColor(job.score)}`}>
@@ -359,7 +393,7 @@ export default function Dashboard({ navigate }) {
                     </td>
                     <td className="px-4 py-3 text-center">
                       {job.verdict ? (
-                        <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${verdictBadge(job.verdict)}`}>
+                        <span className={`text-xs font-medium ${verdictBadge(job.verdict)}`}>
                           {job.verdict}
                         </span>
                       ) : (

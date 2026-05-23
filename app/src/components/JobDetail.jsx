@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { analyzeJobWithStructuredMatching } from '../utils/ai';
+import { analyzeJobWithStructuredMatching, detectDealbreakers } from '../utils/ai';
 import { formatDate } from '../utils/parser';
 import { STATUSES, scoreColor, verdictBadge } from '../constants';
 import CVContextPanel from './CVContextPanel';
 import Spinner from './Spinner';
 
 // Score → border colour for the header card.
+// Same thresholds as scoreColor in constants.js (75 / 45).
 function scoreBorderColor(score) {
   if (score === null || score === undefined) return 'border-slate-700';
-  if (score >= 80) return 'border-emerald-500/40';
-  if (score >= 65) return 'border-yellow-500/40';
-  if (score >= 50) return 'border-orange-500/40';
+  if (score >= 75) return 'border-emerald-500/40';
+  if (score >= 45) return 'border-yellow-500/40';
   return 'border-red-500/40';
 }
 
@@ -24,7 +24,15 @@ function ReportRenderer({ text }) {
   if (!text) return null;
 
   // Remove the hidden Technical Metadata block before rendering.
-  const clean = text.replace(/\n*#{0,3}\s*Technical Metadata[^\n]*\n[\s\S]*/i, '').trimEnd();
+  // Also strip the duplicate **SCORE: ...** / **VERDICT: ...** lines that
+  // the LLM emits at the top of the report — both are already shown in the
+  // styled header card above, so repeating them here is just visual noise.
+  const clean = text
+    .replace(/\n*#{0,3}\s*Technical Metadata[^\n]*\n[\s\S]*/i, '')
+    .replace(/^\s*\*\*SCORE:\s*\d+\s*\*\*\s*$/im, '')
+    .replace(/^\s*\*\*VERDICT:\s*(Apply|Consider|Skip)\s*\*\*\s*$/im, '')
+    .replace(/\n{3,}/g, '\n\n')                  // collapse extra blanks left behind
+    .trimEnd();
 
   // Render **bold** inline.
   const parseInline = (str) => {
@@ -150,6 +158,7 @@ export default function JobDetail({ jobId, navigate }) {
         structured_breakdown: result.structured_breakdown,
         hard_no_violated: result.hard_no_violated,
         hard_no_reason: result.hard_no_reason,
+        dealbreakers_triggered: result.dealbreakers_triggered || [],
         cvId:   reRunCV.id,
         cvName: reRunCV.name,
         date:   new Date().toISOString(),
@@ -220,10 +229,10 @@ export default function JobDetail({ jobId, navigate }) {
           </div>
         </div>
 
-        {/* Verdict badge + status dropdown */}
+        {/* Verdict badge + status dropdown + dealbreaker badge */}
         <div className="flex items-center gap-3 mt-4 flex-wrap">
           {job.verdict && (
-            <span className={`text-sm px-3 py-1 rounded-full border font-semibold ${verdictBadge(job.verdict)}`}>
+            <span className={`text-sm font-semibold ${verdictBadge(job.verdict)}`}>
               {job.verdict}
             </span>
           )}
@@ -234,6 +243,28 @@ export default function JobDetail({ jobId, navigate }) {
           >
             {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
+          {(() => {
+            // Live re-detection so that changing Settings dealbreakers or
+            // editing the JD reflects immediately, without re-analyzing.
+            const liveDb = detectDealbreakers(job.jd, settings.hardNos);
+            if (liveDb.length === 0) return null;
+            return (
+              <span
+                className="text-xs px-2 py-1 rounded-md bg-red-500/10 border border-red-500/30 text-red-400"
+                title={`Dealbreaker(s) detected in JD: ${liveDb.join(', ')}`}
+              >
+                ⚠️ Dealbreaker: {liveDb.join(', ')}
+              </span>
+            );
+          })()}
+          {settings.currentFocus && settings.currentFocus.trim() && (
+            <span
+              className="text-xs px-2 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/30 text-indigo-300"
+              title={`Current focus: ${settings.currentFocus}`}
+            >
+              🧭 Focus
+            </span>
+          )}
         </div>
       </div>
 
@@ -241,6 +272,39 @@ export default function JobDetail({ jobId, navigate }) {
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
         <p className="text-xs text-slate-500 uppercase tracking-wider mb-5">AI Analysis Report</p>
         <ReportRenderer text={job.report} />
+      </div>
+
+      {/* Status timeline — chronological log of status changes for this job */}
+      {Array.isArray(job.history) && job.history.length > 0 && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+          <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">📈 Status History</p>
+          <div className="space-y-1.5">
+            {job.history.map((entry, i) => {
+              const d = entry.at ? new Date(entry.at) : null;
+              const dateStr = d && !isNaN(d) ? d.toLocaleString(undefined, {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+              }) : '—';
+              return (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-200">{entry.status}</span>
+                  <span className="text-xs text-slate-500 font-mono">{dateStr}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Notes — personal scratchpad for this job (recruiter contact, deadlines, follow-ups) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">📝 Notes</p>
+        <textarea
+          value={job.notes || ''}
+          onChange={(e) => updateJob(job.id, { notes: e.target.value })}
+          placeholder="Recruiter contact, deadlines, salary info, follow-up reminders…"
+          rows={4}
+          className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2 placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-y"
+        />
       </div>
 
       {/* Original JD — collapsed by default to keep the page tidy */}

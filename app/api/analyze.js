@@ -5,7 +5,7 @@
  * The server no longer needs a GEMINI_API_KEY environment variable.
  * The owner's key has been removed; every user supplies their own free key.
  */
-const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

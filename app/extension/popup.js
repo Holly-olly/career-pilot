@@ -9,7 +9,7 @@
  */
 
 const DEFAULT_URL = 'https://cv-matcher-azure.vercel.app';
-const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 let scrapedData = null;
 let storedApiKey = '';
 

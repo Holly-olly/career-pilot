@@ -267,25 +267,6 @@ export default function CVManager() {
         </div>
 
         <div>
-          <label className="block text-sm text-slate-400 mb-2">Hiring Persona</label>
-          <input
-            type="text" value={persona} onChange={(e) => setPersona(e.target.value)}
-            placeholder="e.g. Senior Head of People Science"
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:border-indigo-500"
-          />
-          <p className="text-xs text-slate-600 mt-1">The AI evaluates you as if this is your target title.</p>
-        </div>
-
-        <div>
-          <label className="block text-sm text-slate-400 mb-2">Unlisted Talents</label>
-          <textarea
-            rows={3} value={talents} onChange={(e) => setTalents(e.target.value)}
-            placeholder="Skills, projects, or achievements not in your CV..."
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 resize-none"
-          />
-        </div>
-
-        <div>
           <label className="block text-sm text-slate-400 mb-2">Dealbreakers</label>
           <textarea
             rows={2} value={hardNos} onChange={(e) => setHardNos(e.target.value)}

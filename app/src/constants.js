@@ -12,8 +12,8 @@ export const STATUSES = [
   '🎯 Target',
   '📨 Applied',
   '🤝 Interview',
-  '❌ Rejected (App)',
-  '📉 Rejected (Int)',
+  '❌ No Interview',
+  '📉 No Offer',
   '🚫 Dismissed',
   '✅ Offer',
 ];
@@ -22,20 +22,23 @@ export const STATUSES = [
 export const VERDICTS = ['Apply', 'Consider', 'Skip'];
 
 // ── Score → Tailwind text-colour class ───────────────────────────────────────
+// Thresholds aligned with the verdict bands defined in the prompt:
+//   75–100 → Apply    (green)
+//   45–74  → Consider (yellow)
+//    0–44  → Skip     (red)
 export function scoreColor(score) {
   if (score === null || score === undefined) return 'text-slate-500';
-  if (score >= 80) return 'text-emerald-400';
-  if (score >= 65) return 'text-yellow-400';
-  if (score >= 50) return 'text-orange-400';
+  if (score >= 75) return 'text-emerald-400';
+  if (score >= 45) return 'text-yellow-400';
   return 'text-red-400';
 }
 
-// ── Verdict → Tailwind badge classes (background + text + border) ─────────────
+// ── Verdict → Tailwind text colour class ──────────────────────────────────────
 export function verdictBadge(verdict) {
   switch (verdict) {
-    case 'Apply':    return 'bg-emerald-400/10 text-emerald-400 border-emerald-400/30';
-    case 'Consider': return 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30';
-    case 'Skip':     return 'bg-red-400/10 text-red-400 border-red-400/30';
-    default:         return 'bg-slate-700/50 text-slate-400 border-slate-600';
+    case 'Apply':    return 'text-emerald-400';
+    case 'Consider': return 'text-yellow-400';
+    case 'Skip':     return 'text-red-400';
+    default:         return 'text-slate-400';
   }
 }

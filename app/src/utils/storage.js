@@ -34,6 +34,19 @@ export const storage = {
     else localStorage.removeItem(KEYS.ACTIVE_CV);
   },
 
-  getJobs: () => parse(KEYS.JOBS, []),
+  // getJobs migrates legacy records on read: any job without a `history`
+  // array gets one seeded with its current status + a timestamp (job.date
+  // if available, otherwise an empty string so sorting still works).
+  // This lets downstream code rely on `job.history` always being present.
+  getJobs: () => {
+    const jobs = parse(KEYS.JOBS, []);
+    return jobs.map((job) => {
+      if (Array.isArray(job.history) && job.history.length > 0) return job;
+      return {
+        ...job,
+        history: [{ status: job.status || '👀 New', at: job.date || new Date().toISOString() }],
+      };
+    });
+  },
   saveJobs: (jobs) => localStorage.setItem(KEYS.JOBS, JSON.stringify(jobs)),
 };

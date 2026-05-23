@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Career Pilot",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Send any job posting to Career Pilot for instant AI fit analysis — one click on any job board.",
   "permissions": ["activeTab", "scripting", "tabs", "storage"],
   "icons": {

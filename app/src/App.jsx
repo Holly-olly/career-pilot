@@ -79,6 +79,16 @@ function AppShell() {
           <JobDetail jobId={selectedJobId} navigate={navigate} />
         )}
       </main>
+      <footer className="border-t border-slate-800 mt-12 py-5 text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto px-4 flex items-center justify-between gap-4 flex-wrap">
+          <span>Built by Olga Maslenkova · AI Evaluation &amp; Assessment</span>
+          <div className="flex items-center gap-4">
+            <a href="https://github.com/Holly-olly" target="_blank" rel="noopener noreferrer" className="hover:text-slate-300 transition-colors">GitHub</a>
+            <a href="https://www.linkedin.com/in/olga-maslenkova/" target="_blank" rel="noopener noreferrer" className="hover:text-slate-300 transition-colors">LinkedIn</a>
+            <a href="https://t.me/olaintheloop" target="_blank" rel="noopener noreferrer" className="hover:text-slate-300 transition-colors">Telegram</a>
+          </div>
+        </div>
+      </footer>
     </>
   );
 }

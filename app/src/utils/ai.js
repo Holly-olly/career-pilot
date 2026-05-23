@@ -1,7 +1,7 @@
 import { buildPrompt as buildPromptFromTemplate, parseAnalysisResponse } from './prompts.js';
 import { extractStructuredFeatures } from './structuredMatching.js';
 
-const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
 /**
  * Analyze a job with structured matching + LLM analysis
@@ -15,6 +15,19 @@ export async function analyzeJobWithStructuredMatching({
   extendedContext = null,
   outputLevel = 'full', // 'score' | 'score+verdict' | 'full'
 }) {
+  // STEP 0: Pre-check — verify the input actually looks like a job description.
+  // Bails out before any storage or scoring work happens. Throws an Error
+  // with the InvalidJDError marker so callers can show an inline message
+  // instead of saving a junk job record.
+  const jdCheck = await validateIsJD(jd, settings.userApiKey || '');
+  if (!jdCheck.isJD) {
+    const err = new Error(
+      `This doesn't look like a job description. Try pasting actual JD text.${jdCheck.reason ? `\n(Reason: ${jdCheck.reason})` : ''}`
+    );
+    err.code = 'INVALID_JD';
+    throw err;
+  }
+
   // STEP 1: Run structured matching (deterministic baseline)
   const structured = await extractStructuredFeatures(jd, cv, settings);
 
@@ -63,6 +76,10 @@ export async function analyzeJobWithStructuredMatching({
     throw new Error(`Failed to parse LLM response: ${parseResult.error}`);
   }
 
+  // STEP 6: Detect dealbreaker triggers in the JD (purely advisory — does
+  // NOT change score or verdict; surfaces as a badge in the UI).
+  const dealbreakersTriggered = detectDealbreakers(jd, settings.hardNos);
+
   return {
     structured_score: Math.round(structured.structured_score * 100) / 100,
     structured_breakdown: structured.breakdown,
@@ -73,6 +90,7 @@ export async function analyzeJobWithStructuredMatching({
     llm_report: llmRawText, // Full report for display (may be short if score-only)
     prompt_version: promptBuild.metadata.version,
     output_level: outputLevel,
+    dealbreakers_triggered: dealbreakersTriggered, // array of matched terms (empty if none)
     analysis_result: {
       prompt_metadata: promptBuild.metadata,
       parse_metadata: {
@@ -81,6 +99,28 @@ export async function analyzeJobWithStructuredMatching({
       },
     },
   };
+}
+
+/**
+ * Dealbreaker detection — case-insensitive substring match of user's
+ * declared dealbreakers against the JD text. Imperfect (can have false
+ * positives and negatives — substring matching ignores negation and
+ * synonyms), but good enough as an advisory flag. The result is purely
+ * advisory; score and verdict are not modified.
+ *
+ * @param {string} jd        - full job description text
+ * @param {string|array} hardNos - dealbreakers from settings (comma-separated string OR array)
+ * @returns {string[]} list of dealbreaker terms found in the JD
+ */
+export function detectDealbreakers(jd, hardNos) {
+  if (!jd || !hardNos) return [];
+  // Accept either an array, a comma-separated string, OR a newline-separated
+  // string — users type in a textarea and may use either delimiter.
+  const raw = Array.isArray(hardNos) ? hardNos : String(hardNos).split(/[,\n;]/);
+  const terms = raw.map((t) => t.trim()).filter((t) => t.length > 0);
+  if (terms.length === 0) return [];
+  const jdLower = jd.toLowerCase();
+  return terms.filter((t) => jdLower.includes(t.toLowerCase()));
 }
 
 /**
@@ -151,6 +191,51 @@ async function callGemini(prompt, userApiKey = '') {
   if (!response.ok) throw new Error(data?.message || `Request failed (${response.status})`);
   if (!data.text) throw new Error('AI returned an empty response. Please try again.');
   return data.text;
+}
+
+/**
+ * Pre-check: ask the LLM whether the pasted text is actually a job
+ * description. Cheap minimal prompt (~50 tokens in, ~10 tokens out).
+ *
+ * On any failure (network, parse, missing API key) we default to
+ * `{ isJD: true }` rather than blocking the user — better to let a junk
+ * input through than to falsely reject a legitimate JD because of an
+ * unrelated transient error.
+ *
+ * @param {string} jd
+ * @param {string} userApiKey
+ * @returns {Promise<{ isJD: boolean, reason: string|null }>}
+ */
+async function validateIsJD(jd, userApiKey = '') {
+  const sample = (jd || '').trim().slice(0, 4000);
+  if (sample.length < 30) {
+    return { isJD: false, reason: 'Input is too short to be a job description.' };
+  }
+
+  const prompt = `Is the following text a real job description for an actual employment role (responsibilities, requirements, role context)? Reply with EXACTLY one line in this format:
+
+VALID: yes
+or
+VALID: no — [one short reason]
+
+Text:
+"""
+${sample}
+"""`;
+
+  let text;
+  try {
+    text = await callGemini(prompt, userApiKey);
+  } catch {
+    // Fail-open on errors — don't block the user on a transient issue.
+    return { isJD: true, reason: null };
+  }
+
+  const m = text.match(/VALID:\s*(yes|no)(?:\s*[—\-]\s*(.+))?/i);
+  if (!m) return { isJD: true, reason: null };       // unclear → fail-open
+  const verdict = m[1].toLowerCase();
+  if (verdict === 'yes') return { isJD: true, reason: null };
+  return { isJD: false, reason: (m[2] || '').trim() || null };
 }
 
 /**

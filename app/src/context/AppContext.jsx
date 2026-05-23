@@ -82,8 +82,13 @@ export function AppProvider({ children }) {
 
   // ── Jobs ──────────────────────────────────────────────────────────────────
   const addJob = useCallback((job) => {
+    // Ensure every new job carries a history entry so downstream metrics
+    // can rely on `job.history` always being present.
+    const withHistory = Array.isArray(job.history) && job.history.length > 0
+      ? job
+      : { ...job, history: [{ status: job.status || '👀 New', at: job.date || new Date().toISOString() }] };
     setJobsState((prev) => {
-      const next = [job, ...prev];
+      const next = [withHistory, ...prev];
       storage.saveJobs(next);
       return next;
     });
@@ -91,7 +96,21 @@ export function AppProvider({ children }) {
 
   const updateJob = useCallback((id, updates) => {
     setJobsState((prev) => {
-      const next = prev.map((job) => (job.id === id ? { ...job, ...updates } : job));
+      const next = prev.map((job) => {
+        if (job.id !== id) return job;
+        const merged = { ...job, ...updates };
+        // If status changed, append a history entry so we can compute
+        // funnel metrics (Applied → Interview rate, etc.) from real
+        // transitions rather than only the current status.
+        if (updates.status && updates.status !== job.status) {
+          const history = Array.isArray(job.history) ? job.history : [];
+          merged.history = [
+            ...history,
+            { status: updates.status, at: new Date().toISOString() },
+          ];
+        }
+        return merged;
+      });
       storage.saveJobs(next);
       return next;
     });

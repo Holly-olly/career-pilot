@@ -2,10 +2,92 @@
 // Manages baseline and extended context variations
 // Supports easy A/B testing and experimentation
 
+// ──────────────────────────────────────────────────────────────────────────
+// Shared prompt fragments — reused by both baseline and extended templates
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Notes on the schema:
+// - `talents`, `persona`, `hardNos` are kept in the function signatures for
+//   backward compatibility with existing call sites and the localStorage
+//   data model, but they are no longer passed into the LLM prompt:
+//     · `talents` and `persona` → removed entirely (UI hidden, schema stays
+//       intact in case we add them back later).
+//     · `hardNos` → handled by code post-processing as a badge (see ai.js);
+//       not included in the prompt so the LLM doesn't bias the score.
+
+const RUBRIC_BLOCK = `SCORING RUBRIC (internal use — assess silently, do not reveal weights to user):
+1. Skills fit (55%): Ability to apply knowledge and competencies ("can do") — tools, frameworks, methods, language fluency, specific soft skills.
+2. Experience (30%): Demonstrated application of these skills in prior roles ("has done"). Consider it as 60% domain similarity and 40% role relevance.
+3. Education (10%): Formal qualifications. If the JD does not specify any education requirement, treat education as NEUTRAL — do not penalise the candidate for it.
+4. Strategic Alignment (5%): Match with the candidate's stated current focus and career direction.`;
+
+const SCORING_PROCESS = `SCORING PROCESS:
+
+Step 1 — Evaluate each rubric dimension silently against the JD requirements.
+Step 2 — SENIORITY CHECK: Determine the JD's seniority requirement (Junior / Middle / Senior / Lead / Head) and the candidate's current level from the CV. If they differ by 2 or more levels in EITHER direction (e.g., a Senior candidate applying to a Junior role, or a Junior candidate applying to a Senior role), the SCORE must NOT exceed 70 regardless of other dimensions.
+Step 3 — Combine the dimension assessments into a single SCORE on 0–100, where a HIGHER number means a STRONGER overall fit.
+Step 4 — Derive the VERDICT directly from the SCORE band below. Do NOT pick a verdict that contradicts the score.
+
+SCORE BANDS → VERDICT:
+- 85–100: strong fit, no major reservations             → Apply
+- 75–84:  solid fit, minor caveats                      → Apply
+- 60–74:  adjacent domain, transferable skills          → Consider
+- 45–59:  weak overlap, mostly surface keyword match    → Consider
+-  0–44:  not relevant — different domain or seniority off → Skip`;
+
+const OUTPUT_FULL = `Produce the analysis in exactly this format. Write in English regardless of the CV/JD language.
+
+# ROLE: [exact role title from JD] — [exact company name from JD]
+
+**SCORE: [0–100]**
+**VERDICT: [Apply|Consider|Skip]**
+
+[2–3 sentences explaining the verdict: the main fit signal, the main gap, and how the seniority levels compare. No section header above this paragraph.]
+
+**ROLE SNAPSHOT**
+[1–2 sentences: what the employer actually wants — the core problem this role solves. Cut through the wall of text.]
+
+**KEYWORDS**
+[Comma-separated keywords from the JD that are missing or under-emphasised in the CV — either because synonyms are used, or because the keyword is absent entirely. No rewrite suggestions.]
+
+**FINAL TIP**
+[One actionable sentence for positioning.]
+
+---
+Technical Metadata:
+SCORE: [number]
+VERDICT: [Apply|Consider|Skip]`;
+
+const OUTPUT_SCORE_ONLY = `Return ONLY:
+SCORE: [0-100]
+
+---
+Technical Metadata:
+SCORE: [number]`;
+
+const OUTPUT_SCORE_VERDICT = `Return ONLY:
+SCORE: [0-100]
+VERDICT: [Apply|Consider|Skip]
+
+---
+Technical Metadata:
+SCORE: [number]
+VERDICT: [Apply|Consider|Skip]`;
+
+function outputForLevel(level) {
+  if (level === 'score') return OUTPUT_SCORE_ONLY;
+  if (level === 'score+verdict') return OUTPUT_SCORE_VERDICT;
+  return OUTPUT_FULL;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Public API
+// ──────────────────────────────────────────────────────────────────────────
+
 /**
  * Build prompt based on user context and extended settings
  * @param {object} params - {
- *   persona, talents, currentFocus, hardNos,
+ *   persona, talents, currentFocus, hardNos,   // persona/talents/hardNos kept for back-compat, not used
  *   cv, jd, extendedContext,
  *   structuredContext (optional),
  *   templateVersion (optional, default 'baseline'),
@@ -23,18 +105,14 @@ export function buildPrompt({
   extendedContext,
   structuredContext,
   templateVersion = 'baseline',
-  outputLevel = 'full', // 'score' | 'score+verdict' | 'full'
+  outputLevel = 'full',
 }) {
-  // Determine if using extended context
   const has_extended_context = extendedContext && extendedContext.trim().length > 0;
 
-  let prompt =
+  const prompt =
     templateVersion === 'extended' && has_extended_context
       ? buildExtendedContextPrompt({
-          persona,
-          talents,
           currentFocus,
-          hardNos,
           cv,
           jd,
           extendedContext,
@@ -42,10 +120,7 @@ export function buildPrompt({
           outputLevel,
         })
       : buildBaselinePrompt({
-          persona,
-          talents,
           currentFocus,
-          hardNos,
           cv,
           jd,
           structuredContext,
@@ -66,41 +141,23 @@ export function buildPrompt({
 }
 
 /**
- * Baseline prompt with output level support
- * outputLevel: 'score' (~60% tokens saved) | 'score+verdict' (~30% saved) | 'full' (100%)
+ * Baseline prompt — research-validated rubric, seniority check, minimal report.
  */
 function buildBaselinePrompt({
-  persona,
-  talents,
   currentFocus,
-  hardNos,
   cv,
   jd,
   structuredContext,
   outputLevel = 'full',
 }) {
-  const basePrompt = `SYSTEM PERSONA: You are a Senior Hiring Manager specializing in ${
-    persona || 'talent acquisition and executive search'
-  }.
+  return `SYSTEM: You are a Senior Hiring Manager. Be objective and concise.
 
-SCORING RUBRIC (internal use — assess silently, do not reveal weights to user):
-1. Domain Expertise (35%): Depth of knowledge and methodology in the candidate's core field
-2. Technical Skills (25%): Match with required tools, stack, and analytical methods
-3. Seniority Fit (20%): Candidate's experience level vs role's seniority requirement
-4. Education Fit (15%): Candidate's qualification level vs role's education requirement
-5. Strategic Alignment (5%): Match with candidate's stated current focus and career direction
+${RUBRIC_BLOCK}
 
-Score bands:
-- 80–100: Strong fit — would shortlist for interview with confidence
-- 65–79:  Partial fit — real overlap, genuine chance of being shortlisted
-- 50–64:  Adjacent domain — transferable skills but core of role is misaligned
-- 25–49:  Weak overlap — surface keyword match only
-- 0–24:   Not relevant — different domain or hard dealbreaker present
+${SCORING_PROCESS}
 
-CANDIDATE HIDDEN CONTEXT (weigh heavily — this is not visible in the CV):
-- Unlisted Talents/Experience: ${talents || 'None specified'}
+CANDIDATE HIDDEN CONTEXT (this is not visible in the CV):
 - Current Career Focus: ${currentFocus || 'Not specified'}
-- Hard NOs / Dealbreakers: ${hardNos || 'None'}
 
 ${structuredContext ? structuredContext : ''}
 
@@ -112,114 +169,34 @@ ${cv}
 JOB DESCRIPTION:
 ${jd}
 
----`;
-
-  // Output level determines what to return
-  if (outputLevel === 'score') {
-    return (
-      basePrompt +
-      `
-Return ONLY:
-SCORE: [0-100]
-
 ---
-Technical Metadata:
-SCORE: [number]`
-    );
-  }
-
-  if (outputLevel === 'score+verdict') {
-    return (
-      basePrompt +
-      `
-Return ONLY:
-SCORE: [0-100]
-VERDICT: [Apply|Consider|Skip]
-
----
-Technical Metadata:
-SCORE: [number]
-VERDICT: [Apply|Consider|Skip]`
-    );
-  }
-
-  // Default: full output
-  return (
-    basePrompt +
-    `
-Produce the analysis in exactly this format:
-
-# ROLE: [exact role title from JD] — [exact company name from JD]
-
-**SCORE: [0–100]**
-**VERDICT: [Apply|Consider|Skip]**
-
-**ROLE SNAPSHOT**
-One sentence describing the core problem this role solves.
-
-**SUMMARY**
-2–3 sentences: domain match, key fit signal, and the main gap.
-
-**CV TWEAKS FOR THIS ROLE**
-• Replace: "[Old]" → "[New]"
-• Highlight: [specific experience to promote]
-
-**ATS KEYWORDS**
-[5–8 comma-separated keywords from JD that the candidate has demonstrated]
-
-**FINAL TIP**
-[One actionable sentence for positioning]
-
----
-Technical Metadata:
-SCORE: [number]
-VERDICT: [Apply|Consider|Skip]`
-  );
+${outputForLevel(outputLevel)}`;
 }
 
 /**
- * Extended context prompt with output level support
- * Includes role description (ATS, recruiter, hiring manager, etc.)
- * outputLevel: 'score' | 'score+verdict' | 'full'
+ * Extended-context prompt — same rubric, plus a reviewer-perspective note.
  */
 function buildExtendedContextPrompt({
-  persona,
-  talents,
   currentFocus,
-  hardNos,
   cv,
   jd,
   extendedContext,
   structuredContext,
   outputLevel = 'full',
 }) {
-  const basePrompt = `SYSTEM PERSONA: You are a Senior Hiring Manager specializing in ${
-    persona || 'talent acquisition and executive search'
-  }.
+  return `SYSTEM: You are a Senior Hiring Manager. Be objective and concise.
 
-EXTENDED CONTEXT - Who reviews this CV:
+EXTENDED CONTEXT — Who reviews this CV:
 ${extendedContext}
 
-[Note: Carefully consider how this context shapes CV review. Different reviewers (ATS vs recruiter vs hiring manager) may prioritize different signals. Adapt your assessment accordingly while remaining objective.]
+[Note: Carefully consider how this context shapes CV review. Different reviewers (ATS vs recruiter vs hiring manager) may prioritise different signals. Adapt your assessment accordingly while remaining objective.]
 
-SCORING RUBRIC (internal use — assess silently, do not reveal weights to user):
-1. Domain Expertise (35%): Depth of knowledge and methodology in the candidate's core field
-2. Technical Skills (25%): Match with required tools, stack, and analytical methods
-3. Seniority Fit (20%): Candidate's experience level vs role's seniority requirement
-4. Education Fit (15%): Candidate's qualification level vs role's education requirement
-5. Strategic Alignment (5%): Match with candidate's stated current focus and career direction
+${RUBRIC_BLOCK}
 
-Score bands:
-- 80–100: Strong fit — would shortlist for interview with confidence
-- 65–79:  Partial fit — real overlap, genuine chance of being shortlisted
-- 50–64:  Adjacent domain — transferable skills but core of role is misaligned
-- 25–49:  Weak overlap — surface keyword match only
-- 0–24:   Not relevant — different domain or hard dealbreaker present
+${SCORING_PROCESS}
 
-CANDIDATE HIDDEN CONTEXT (weigh heavily — this is not visible in the CV):
-- Unlisted Talents/Experience: ${talents || 'None specified'}
+CANDIDATE HIDDEN CONTEXT (this is not visible in the CV):
 - Current Career Focus: ${currentFocus || 'Not specified'}
-- Hard NOs / Dealbreakers: ${hardNos || 'None'}
 
 ${structuredContext ? structuredContext : ''}
 
@@ -231,69 +208,8 @@ ${cv}
 JOB DESCRIPTION:
 ${jd}
 
----`;
-
-  // Output level determines what to return
-  if (outputLevel === 'score') {
-    return (
-      basePrompt +
-      `
-Return ONLY:
-SCORE: [0-100]
-
 ---
-Technical Metadata:
-SCORE: [number]`
-    );
-  }
-
-  if (outputLevel === 'score+verdict') {
-    return (
-      basePrompt +
-      `
-Return ONLY:
-SCORE: [0-100]
-VERDICT: [Apply|Consider|Skip]
-
----
-Technical Metadata:
-SCORE: [number]
-VERDICT: [Apply|Consider|Skip]`
-    );
-  }
-
-  // Default: full output
-  return (
-    basePrompt +
-    `
-Produce the analysis in exactly this format:
-
-# ROLE: [exact role title from JD] — [exact company name from JD]
-
-**SCORE: [0–100]**
-**VERDICT: [Apply|Consider|Skip]**
-
-**ROLE SNAPSHOT**
-One sentence describing the core problem this role solves.
-
-**SUMMARY**
-2–3 sentences: domain match, key fit signal, and the main gap.
-
-**CV TWEAKS FOR THIS ROLE**
-• Replace: "[Old]" → "[New]"
-• Highlight: [specific experience to promote]
-
-**ATS KEYWORDS**
-[5–8 comma-separated keywords from JD that the candidate has demonstrated]
-
-**FINAL TIP**
-[One actionable sentence for positioning]
-
----
-Technical Metadata:
-SCORE: [number]
-VERDICT: [Apply|Consider|Skip]`
-  );
+${outputForLevel(outputLevel)}`;
 }
 
 /**
@@ -306,13 +222,13 @@ export function getAvailablePromptVersions() {
       id: 'baseline',
       name: 'Baseline',
       description: 'Standard scoring without extended context',
-      tokens_estimate: 2000,
+      tokens_estimate: 1800,
     },
     {
       id: 'extended',
       name: 'Extended Context',
       description: 'Adapts analysis based on who reviews CV (ATS vs recruiter vs hiring manager)',
-      tokens_estimate: 2200,
+      tokens_estimate: 2000,
     },
   ];
 }
@@ -321,16 +237,14 @@ export function getAvailablePromptVersions() {
  * Extract score and verdict from LLM response
  * Handles different output levels (score only, score+verdict, full)
  * @param {string} text - LLM response text
- * @param {string} outputLevel - 'score' | 'score+verdict' | 'full' 
+ * @param {string} outputLevel - 'score' | 'score+verdict' | 'full'
  * @returns {object} { score: number, verdict: string|null, success: bool }
  */
 export function parseAnalysisResponse(text, outputLevel = 'full') {
   try {
-    // Extract SCORE
     const scoreMatch = text.match(/SCORE:\s*(\d+)/i);
     const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
 
-    // Extract VERDICT (only for non-score-only outputs)
     let verdict = null;
     if (outputLevel !== 'score') {
       const verdictMatch = text.match(/VERDICT:\s*(Apply|Consider|Skip)/i);
@@ -344,7 +258,6 @@ export function parseAnalysisResponse(text, outputLevel = 'full') {
       };
     }
 
-    // For 'score' or 'score+verdict' levels, verdict is optional
     if (outputLevel === 'score+verdict' && verdict === null) {
       return {
         error: 'Could not parse verdict from response',
@@ -354,8 +267,8 @@ export function parseAnalysisResponse(text, outputLevel = 'full') {
     }
 
     return {
-      score: Math.max(0, Math.min(100, score)), // Clamp 0-100
-      verdict: verdict || 'Consider', // Default to 'Consider' if not provided
+      score: Math.max(0, Math.min(100, score)),
+      verdict: verdict || 'Consider',
       success: true,
       raw_text: text,
     };
